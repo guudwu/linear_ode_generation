@@ -73,6 +73,17 @@ eigen_imaginary <-
     + rnorm ( (dimension/2) , 0 , 0.1 )
   ) * 2 * pi / time_diff
 
+# Block Permutation
+
+# Permute "b" of blocks to break the ascending order.
+
+if ( block_permute == TRUE )
+{
+  require('permute')
+  permute_index <- shuffle(dimension/2)
+  eigen_imaginary <- eigen_imaginary[permute_index]
+}
+
 # Coefficient Matrix and Observation
 
 ind <- seq.int ( 1 , dimension-1 , 2 )
