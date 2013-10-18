@@ -10,6 +10,7 @@ linear_ode_generation <- function
   , real_max = ifelse ( real_min<0 , real_min/2 , 2*real_min )
   , block_permute = TRUE
   , orthogonal_transformation = NULL
+  , row_column_permutation = TRUE
 )
 
 {
@@ -151,6 +152,24 @@ if ( ! is.null(orthogonal_transformation) )
   )
   observation <- ortho_tran %*% observation
   coefficient <- ortho_tran %*% coefficient %*% t(ortho_tran)
+}
+
+# Row-Column Permutation
+
+# Permute rows and columns
+#   by left multiplying a permutation matrix
+#   and right multiplying its transpose
+#   to the coefficient matrix.
+# This will make the sparsity structure less obvious,
+#   however it does not change the property,
+#   which means the system is still unconnected.
+
+if ( row_column_permutation == TRUE )
+{
+  require('permute')
+  permute_index <- shuffle ( dimension )
+  coefficient <- coefficient [ permute_index , permute_index ]
+  observation <- observation [ permute_index , ]
 }
 
 # Return
