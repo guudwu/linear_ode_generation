@@ -1,9 +1,15 @@
 dimension <- 8
 time_point <- 0:100
+orthogonal_transformation <- c(1,5)
 
 source('linear_ode_generation.R')
 
-res <- linear_ode_generation ( dimension , time_point )
+res <-
+  linear_ode_generation (
+    dimension
+    , time_point
+    , orthogonal_transformation = orthogonal_transformation
+  )
 
 linODE <- function ( time , state , pars )
 {

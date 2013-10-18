@@ -9,6 +9,7 @@ linear_ode_generation <- function
   , real_min = -0.7 / ( tail(time_point,1) - time_point[1] )
   , real_max = ifelse ( real_min<0 , real_min/2 , 2*real_min )
   , block_permute = TRUE
+  , orthogonal_transformation = NULL
 )
 
 {
@@ -17,25 +18,40 @@ linear_ode_generation <- function
 
 if ( dimension <= 0 )
 {
-  stop ( 'Argument "dimension" must be positive.' )
+  stop('Argument "dimension" must be positive.')
 }
 if ( dimension%%2 != 0 )
 {
-  stop ( 'Argument "dimension" must be even.' )
+  stop('Argument "dimension" must be even.')
 }
 
 time_point <- unique ( sort ( time_point ) )
 if ( length(time_point) < 2 )
 {
-  stop ( 'Length of argument "time_point" must be at least 2.' )
+  stop('Length of argument "time_point" must be at least 2.')
 }
 
 if ( real_min > real_max )
 {
-  warning ( 'Argument "real_min" larger than "real_max".  Automatically exchanged.' )
+  warning('Argument "real_min" larger than "real_max".  Automatically exchanged.')
   temp <- real_max
   real_max <- real_min
   real_min <- temp
+}
+
+if ( ! is.null(orthogonal_transformation) )
+{
+  orthogonal_transformation <-
+    unique ( sort ( orthogonal_transformation ) )
+  if ( min(orthogonal_transformation) < 1
+    | max(orthogonal_transformation) > dimension )
+  {
+    stop('Out-of-bound index in "orthogonal_transformation".')
+  }
+  if ( ! all ( orthogonal_transformation%%2 == 1 ) )
+  {
+    stop('Indices in "orthogonal_transformation" must be odd.')
+  }
 }
 
 # Eigenvalues
@@ -109,6 +125,33 @@ lapply ( 1:(dimension/2) ,
       )
   }
 )
+
+# Orthogonal Transformation
+
+# Mix adjacent blocks
+#   by left multiplying a block diagonal orthogonal matrix
+#   and right multiplying its transpose to the coefficient matrix.
+# "orthogonal_transformation" indicates the starting indices of
+#   blocks in the orthogonal transformation matrix.
+
+if ( ! is.null(orthogonal_transformation) )
+{
+  orthogonal_transformation <-
+    c ( orthogonal_transformation , dimension+1 )
+  ortho_tran <- matrix ( 0 , dimension , dimension )
+  lapply ( 1 : (length(orthogonal_transformation)-1) ,
+    function(ind)
+    {
+      ind1 <- orthogonal_transformation[ind]
+      ind2 <- orthogonal_transformation[ind+1] - 1
+      require('pracma')
+      ortho_tran [ ind1:ind2 , ind1:ind2 ] <<-
+        rortho ( ind2-ind1+1 )
+    }
+  )
+  observation <- ortho_tran %*% observation
+  coefficient <- ortho_tran %*% coefficient %*% t(ortho_tran)
+}
 
 # Return
 
