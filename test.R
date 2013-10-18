@@ -5,7 +5,7 @@ intercept <- c(1,0)
 
 source('linear_ode_generation.R')
 
-res <-
+linear_ode <-
   linear_ode_generation (
     dimension
     , time_point
@@ -23,8 +23,11 @@ linODE <- function ( time , state , pars )
 
 ode_res <-
   ode (
-    res$observation[,1] , time_point , linODE ,
-    list ( res$coefficient , res$intercept )
+    linear_ode$observation[,1] , time_point , linODE ,
+    list ( linear_ode$coefficient , linear_ode$intercept )
   )
 
-rss <- norm ( t(ode_res[,-1]) - res$observation , 'F' )
+rss <- norm ( t(ode_res[,-1]) - linear_ode$observation , 'F' )
+
+source('check.linear_ode.R')
+ode_property <- check.linear_ode ( linear_ode )
