@@ -31,3 +31,6 @@ rss <- norm ( t(ode_res[,-1]) - linear_ode$observation , 'F' )
 
 source('check.linear_ode.R')
 ode_property <- check.linear_ode ( linear_ode )
+
+source('data.linear_ode.R')
+data.linear_ode ( linear_ode )
