@@ -11,6 +11,7 @@ linear_ode_generation <- function
   , block_permute = TRUE
   , orthogonal_transformation = NULL
   , row_column_permutation = TRUE
+  , intercept = NULL
 )
 
 {
@@ -47,12 +48,21 @@ if ( ! is.null(orthogonal_transformation) )
   if ( min(orthogonal_transformation) < 1
     | max(orthogonal_transformation) > dimension )
   {
-    stop('Out-of-bound index in "orthogonal_transformation".')
+    stop('Out-of-bound index in argument "orthogonal_transformation".')
   }
   if ( ! all ( orthogonal_transformation%%2 == 1 ) )
   {
-    stop('Indices in "orthogonal_transformation" must be odd.')
+    stop('Indices in argument "orthogonal_transformation" must be odd.')
   }
+}
+
+if ( ! is.null(intercept) )
+{
+  if ( length(intercept) != 2 )
+  {
+    stop('Length of argument "intercept" must be 2.')
+  }
+  intercept = sort ( intercept )
 }
 
 # Eigenvalues
@@ -172,12 +182,21 @@ if ( row_column_permutation == TRUE )
   observation <- observation [ permute_index , ]
 }
 
+# Intercept
+
+if ( ! is.null(intercept) )
+{
+  intercept <- runif ( dimension , intercept[1] , intercept[2] )
+  observation <- observation - solve ( coefficient , intercept )
+}
+
 # Return
 
 return (
   list (
     coefficient = coefficient
     , observation = observation
+    , intercept = intercept
   )
 )
 
