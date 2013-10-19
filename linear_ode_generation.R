@@ -195,8 +195,9 @@ if ( ! is.null(intercept) )
 return (
   list (
     coefficient = coefficient
-    , observation = observation
     , intercept = intercept
+    , observation = observation
+    , time_point = time_point
   )
 )
 
