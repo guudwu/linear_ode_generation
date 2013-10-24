@@ -1,7 +1,8 @@
+set.seed(0)
 dimension <- 8
-time_point <- 0:100
+time_point <- 0:10
 orthogonal_transformation <- c(1,5)
-intercept <- c(1,0)
+intercept <- c(0,1)
 
 source('linear_ode_generation.R')
 
@@ -21,6 +22,7 @@ linODE <- function ( time , state , pars )
   return ( list ( res ) )
 }
 
+require('deSolve')
 ode_res <-
   ode (
     linear_ode$observation[,1] , time_point , linODE ,
