@@ -16,6 +16,16 @@ cat (
   linear_ode$time_point
   , sep = ' '
 )
+cat ( '\n' )
+cat (
+  sum ( linear_ode$coefficient != 0 )
+  , ifelse (
+      is.null(linear_ode$intercept)
+      , 0
+      , nrow(linear_ode$observation)
+    )
+  , sep = ' '
+)
 sink(NULL)
 
 write.table ( as.numeric ( linear_ode$coefficient )
@@ -32,12 +42,15 @@ write.table ( as.numeric ( linear_ode$observation )
   , quote=FALSE
 )
 
-write.table ( as.numeric ( linear_ode$intercept )
-  , file='intercept.data'
-  , row.names=FALSE , col.names=FALSE ,
-  , sep=' ' , eol=' '
-  , quote=FALSE
-)
+if ( ! is.null(linear_ode$intercept) )
+{
+  write.table ( as.numeric ( linear_ode$intercept )
+    , file='intercept.data'
+    , row.names=FALSE , col.names=FALSE ,
+    , sep=' ' , eol=' '
+    , quote=FALSE
+  )
+}
 
 if ( sparse )
 {
@@ -59,6 +72,6 @@ if ( sparse )
   )
 }
 
-sink(NULL)
+#sink(NULL)
 
 }
