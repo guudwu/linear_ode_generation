@@ -1,6 +1,4 @@
 # Generate a linear ODE system
-#
-# Last modified on 2013-10-17 by GuuD WU.
 
 linear_ode_generation <- function
 (
@@ -14,23 +12,53 @@ linear_ode_generation <- function
   , intercept = NULL
 )
 
+# INPUT:
+# dimension: Dimension of the system.
+#   Currently the system can contian complex eigen-values,
+#   which comes in pairs.
+#   Hence "dimension" must be an even integer.
+# time_point: Time points for observations.
+# real_min: Lower bounds for randomly generated eigen-value real parts.
+#   The default value satisfies that the magnitude at the last
+#   time point is approximately half of that at the first.
+# real_max: Upper bounds for randomly generated eigen-value real parts.
+# block_permute: Permute 2x2 blocks on diagonal before orthogonal
+#   transformation.
+# orthogonal_transformation: Mix adjacent blocks by an
+#   orthogonal transformation.
+# row_column_permutation: Make the sparsity structure less obvious
+#   by permuting rows and columns of the coefficient matrix.
+# intercept: whether an intercept term will appear in the system.
+
+# OUTPUT:
+# coefficient: Coefficient matrix of the system.
+# intercept: Intercept term of the system.
+# observation: Observation matrix.
+# time_point: Time points of observation matrix.
+
 {
 
-# Sanity Check
+# Sanity Check#{{{
 
+dimension <- as.integer(dimension)
+if ( length(dimension) != 1 )
+{
+  stop('Argument "dimension" must be a positive even integer.')
+}
 if ( dimension <= 0 )
 {
-  stop('Argument "dimension" must be positive.')
+  stop('Argument "dimension" must be a positive even integer.')
 }
 if ( dimension%%2 != 0 )
 {
-  stop('Argument "dimension" must be even.')
+  stop('Argument "dimension" must be a positive even integer.')
 }
 
-time_point <- unique ( sort ( time_point ) )
+time_point <- as.numeric(unique(sort(time_point)))
 if ( length(time_point) < 2 )
 {
-  stop('Length of argument "time_point" must be at least 2.')
+  stop('"time_point" must be a vector ' ,
+    'longer than 1 with no identical elements.')
 }
 
 if ( real_min > real_max )
@@ -64,8 +92,9 @@ if ( ! is.null(intercept) )
   }
   intercept = sort ( intercept )
 }
+#}}}
 
-# Eigenvalues
+# Eigenvalues#{{{
 
 # Generate a 2x2 block-diagonal matrix.
 #   Each block is of form:
@@ -99,8 +128,9 @@ eigen_imaginary <-
     seq ( dimension/2 )
     + rnorm ( (dimension/2) , 0 , 0.1 )
   ) * 2 * pi / time_diff
+#}}}
 
-# Block Permutation
+# Block Permutation#{{{
 
 # Permute "b" of blocks to break the ascending order.
 
@@ -110,8 +140,9 @@ if ( block_permute == TRUE )
   permute_index <- shuffle(dimension/2)
   eigen_imaginary <- eigen_imaginary[permute_index]
 }
+#}}}
 
-# Coefficient Matrix and Observation
+# Coefficient Matrix and Observation#{{{
 
 ind <- seq.int ( 1 , dimension-1 , 2 )
 
@@ -136,8 +167,9 @@ lapply ( 1:(dimension/2) ,
       )
   }
 )
+#}}}
 
-# Orthogonal Transformation
+# Orthogonal Transformation#{{{
 
 # Mix adjacent blocks
 #   by left multiplying a block diagonal orthogonal matrix
@@ -163,8 +195,9 @@ if ( ! is.null(orthogonal_transformation) )
   observation <- ortho_tran %*% observation
   coefficient <- ortho_tran %*% coefficient %*% t(ortho_tran)
 }
+#}}}
 
-# Row-Column Permutation
+# Row-Column Permutation#{{{
 
 # Permute rows and columns
 #   by left multiplying a permutation matrix
@@ -181,16 +214,18 @@ if ( row_column_permutation == TRUE )
   coefficient <- coefficient [ permute_index , permute_index ]
   observation <- observation [ permute_index , ]
 }
+#}}}
 
-# Intercept
+# Intercept#{{{
 
 if ( ! is.null(intercept) )
 {
   intercept <- runif ( dimension , intercept[1] , intercept[2] )
   observation <- observation - solve ( coefficient , intercept )
 }
+#}}}
 
-# Return
+# Return#{{{
 
 return (
   list (
@@ -200,5 +235,6 @@ return (
     , time_point = time_point
   )
 )
+#}}}
 
 }
