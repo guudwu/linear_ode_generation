@@ -10,8 +10,9 @@ linear_ode <-
   linear_ode_generation (
     dimension
     , time_point
-    , orthogonal_transformation = orthogonal_transformation
-    , intercept = intercept
+#    , orthogonal_transformation = orthogonal_transformation
+    , row_column_permutation = FALSE
+#    , intercept = intercept
   )
 
 linODE <- function ( time , state , pars )

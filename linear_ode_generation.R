@@ -6,7 +6,6 @@ linear_ode_generation <- function
   , time_point
   , real_min = -0.7 / ( tail(time_point,1) - time_point[1] )
   , real_max = ifelse ( real_min<0 , real_min/2 , 2*real_min )
-  , block_permute = TRUE
   , orthogonal_transformation = NULL
   , row_column_permutation = TRUE
   , intercept = NULL
@@ -128,19 +127,12 @@ eigen_imaginary <-
     seq ( dimension/2 )
     + rnorm ( (dimension/2) , 0 , 0.1 )
   ) * 2 * pi / time_diff
+
+require('permute')
+permute_index <- permute::shuffle(dimension/2)
+eigen_imaginary <- eigen_imaginary[permute_index]
 #}}}
 
-# Block Permutation#{{{
-
-# Permute "b" of blocks to break the ascending order.
-
-if ( block_permute == TRUE )
-{
-  require('permute')
-  permute_index <- shuffle(dimension/2)
-  eigen_imaginary <- eigen_imaginary[permute_index]
-}
-#}}}
 
 # Coefficient Matrix and Observation#{{{
 
