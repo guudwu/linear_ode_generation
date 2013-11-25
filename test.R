@@ -1,8 +1,8 @@
 set.seed(0)
 dimension <- 8
-time_point <- 0:10
-orthogonal_transformation <- c(1,5)
-intercept <- c(0,1)
+time_point <- 0:100
+orthogonal_transformation <- list(c(2,3),c(4,5),c(6,8))
+intercept <- list(0,0)
 
 source('linear_ode_generation.R')
 
@@ -10,9 +10,9 @@ linear_ode <-
   linear_ode_generation (
     dimension
     , time_point
-#    , orthogonal_transformation = orthogonal_transformation
+    , orthogonal_transformation = orthogonal_transformation
     , row_column_permutation = FALSE
-#    , intercept = intercept
+    , intercept = intercept
   )
 
 linODE <- function ( time , state , pars )
@@ -24,13 +24,14 @@ linODE <- function ( time , state , pars )
 }
 
 require('deSolve')
-ode_res <-
-  ode (
-    linear_ode$observation[,1] , time_point , linODE ,
-    list ( linear_ode$coefficient , linear_ode$intercept )
-  )
+ode_res <- ode (
+  linear_ode$observation[1,-1]
+  , linear_ode$observation[,1]
+  , linODE
+  , list ( linear_ode$coefficient , linear_ode$intercept )
+)
 
-rss <- norm ( t(ode_res[,-1]) - linear_ode$observation , 'F' )
+rss <- norm ( ode_res[,-1] - linear_ode$observation[,-1] , 'F' )
 
 source('check.linear_ode.R')
 ode_property <- check.linear_ode ( linear_ode )

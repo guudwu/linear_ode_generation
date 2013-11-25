@@ -4,53 +4,52 @@ linear_ode_generation <- function
 (
   dimension
   , time_point
-  , real_min = -0.7 / ( tail(time_point,1) - time_point[1] )
-  , real_max = ifelse ( real_min<0 , real_min/2 , 2*real_min )
-  , orthogonal_transformation = NULL
+  , orthogonal_transformation = list()
   , row_column_permutation = TRUE
-  , intercept = NULL
+  , intercept = list(0,0)
 )
 
 # INPUT:
 # dimension: Dimension of the system.
 #   Currently the system can contian complex eigen-values,
-#   which comes in pairs.
-#   Hence "dimension" must be an even integer.
+#   which comes in pairs,
+#   and at most one real eigen-value,
+#   since currently we have not found a good way to control
+#   the correlation between curves by real eigen-values.
+#   Hence if "dimension" is even, all eigen-values are complex,
+#   otherwise there exists one real eigen-value in the spectrum.
 # time_point: Time points for observations.
-# real_min: Lower bounds for randomly generated eigen-value real parts.
-#   The default value satisfies that the magnitude at the last
-#   time point is approximately half of that at the first.
-# real_max: Upper bounds for randomly generated eigen-value real parts.
-# block_permute: Permute 2x2 blocks on diagonal before orthogonal
-#   transformation.
-# orthogonal_transformation: Mix adjacent blocks by an
-#   orthogonal transformation.
+# orthogonal_transformation: A list which applies transformation
+#   to coefficient matrix to adjust the sparsity and structure.
+#   Each component of the list is a 2-tuple (M,N)
+#   A random orthogonal matrix of dimension (N-M+1) is left multipled
+#   to Mth-Nth row of the coefficient matrix,
+#   and its transpose right multipled to Mth-Nth column of the
+#   coefficient matrix.
 # row_column_permutation: Make the sparsity structure less obvious
 #   by permuting rows and columns of the coefficient matrix.
-# intercept: whether an intercept term will appear in the system.
+# intercept: A list of two vectors of length "dimension"
+#   indicating lower and upper bounds of intercept term.
+#   Each component can also be a scalar,
+#   which will be automatically expanded to a vector.
+#   The default value disables intercept term.
 
 # OUTPUT:
 # coefficient: Coefficient matrix of the system.
 # intercept: Intercept term of the system.
 # observation: Observation matrix.
-# time_point: Time points of observation matrix.
+#   Each row stands for a time point.
+#   Each column is a curve.
+#   The first column is time points.
 
 {
 
 # Sanity Check#{{{
 
 dimension <- as.integer(dimension)
-if ( length(dimension) != 1 )
+if ( length(dimension)!=1 || dimension<=0 )
 {
-  stop('Argument "dimension" must be a positive even integer.')
-}
-if ( dimension <= 0 )
-{
-  stop('Argument "dimension" must be a positive even integer.')
-}
-if ( dimension%%2 != 0 )
-{
-  stop('Argument "dimension" must be a positive even integer.')
+  stop('Argument "dimension" must be a positive integer.')
 }
 
 time_point <- as.numeric(unique(sort(time_point)))
@@ -60,173 +59,201 @@ if ( length(time_point) < 2 )
     'longer than 1 with no identical elements.')
 }
 
-if ( real_min > real_max )
-{
-  warning('Argument "real_min" larger than "real_max".  Automatically exchanged.')
-  temp <- real_max
-  real_max <- real_min
-  real_min <- temp
-}
+row_column_permutation <- as.logical(row_column_permutation)
 
-if ( ! is.null(orthogonal_transformation) )
+intercept <- as.list(intercept)
+if ( length(intercept)!=2 )
 {
-  orthogonal_transformation <-
-    unique ( sort ( orthogonal_transformation ) )
-  if ( min(orthogonal_transformation) < 1
-    | max(orthogonal_transformation) > dimension )
-  {
-    stop('Out-of-bound index in argument "orthogonal_transformation".')
-  }
-  if ( ! all ( orthogonal_transformation%%2 == 1 ) )
-  {
-    stop('Indices in argument "orthogonal_transformation" must be odd.')
-  }
+  stop('"intercept" must be a list of two vectors or scalars.')
 }
-
-if ( ! is.null(intercept) )
+intercept[[1]] <- as.numeric(intercept[[1]])
+if ( length(intercept[[1]])==1 )
 {
-  if ( length(intercept) != 2 )
-  {
-    stop('Length of argument "intercept" must be 2.')
-  }
-  intercept = sort ( intercept )
+  intercept[[1]] <- rep ( intercept[[1]] , dimension )
+}
+if ( length(intercept[[1]])!=dimension )
+{
+  stop('Each item of "intercept" must be a scalar or ' ,
+    'a vector of length "dimension".')
+}
+intercept[[2]] <- as.numeric(intercept[[2]])
+if ( length(intercept[[2]])==1 )
+{
+  intercept[[2]] <- rep ( intercept[[2]] , dimension )
+}
+if ( length(intercept[[2]])!=dimension )
+{
+  stop('Each item of "intercept" must be a scalar or ' ,
+    'a vector of length "dimension".')
 }
 #}}}
 
-# Eigenvalues#{{{
+# Generate eigenvalues#{{{
 
-# Generate a 2x2 block-diagonal matrix.
-#   Each block is of form:
+# Generate a block-diagonal matrix.
+# Each block is a scalar "a",
+# indicating a real eigen-value,
+# or of form:
 #     a b
 #    -b a
-#   which yields an analytic solution:
+# which indicates a pair of complex eigen-values: a+-bi
+# The analytic solution is:
+#     exp(at)
+# for real eigen-value, and
 #     exp(at)sin(bt)
 #     exp(at)cos(bt)
-#
+# for a pair of complex eigen-values.
+
 # "a"s are stored in "eigen_real",
-#   and "b"s in "eigen_imaginary".
-#
-# Generally "a" should be negative to make system stable.
-# Each "a" is generated uniform-randomly in range:
-#   [real_min,real_max].
-# Default lower-bound makes the magnitude of each curve
-#   diminishes a half,
-#   and the upper-bound is half of the lower-bound.
-#
+# and "b"s in "eigen_imaginary".
+
+# If there exists one real eigen-value,
+# it is the last in "a".
+
+# Generally "a" should be negative, or at least not too positive,
+# to make the system stable.
+# Each "a" is generated independently and uniform-randomly in range:
+#     [real_min,real_max].
+# The "real_min" value satisfies that the magnitude at the last
+# time point is approximately half of that at the first.
+# "real_max" is half of the lower-bound.
+
 # Each "b" should be bounded away from each other
-#   to decrease correlation of the system.
+# to decrease correlation of the system.
 # Currently they are chosen as an arithmetic sequence,
-#   plus a small random noise.
-# The smallest "b" is chosen to contain one period in the time span.
+# plus a small random white noise.
+# The smallest "b" is chosen to contain approximately
+# one period in the time span when no real eigen-value exists,
+# and double that value when there exists one real eigen-value.
 
-eigen_real <- runif ( dimension/2 , real_min , real_max )
+num_real_eigen <- dimension%%2
+num_complex_eigen <- floor(dimension/2)
 
-time_diff <- tail(time_point,1) - time_point[1]
-eigen_imaginary <-
-  (
-    seq ( dimension/2 )
-    + rnorm ( (dimension/2) , 0 , 0.1 )
-  ) * 2 * pi / time_diff
+time_span <- tail(time_point,1) - time_point[1]
+
+real_min = -0.7/time_span
+real_max = real_min/2
+
+eigen_real <- runif (
+  num_complex_eigen + num_real_eigen
+  , real_min
+  , real_max
+)
+
+eigen_imaginary_random_level <- 0.1
+eigen_imaginary <- 1:num_complex_eigen
+if ( num_real_eigen==1 )
+{
+  eigen_imaginary <- eigen_imaginary + 1
+}
+eigen_imaginary <- eigen_imaginary +
+  rnorm ( num_complex_eigen , 0 , eigen_imaginary_random_level )
+eigen_imaginary <- eigen_imaginary * 2 * pi / time_span
 
 require('permute')
 permute_index <- permute::shuffle(dimension/2)
 eigen_imaginary <- eigen_imaginary[permute_index]
 #}}}
 
-
 # Coefficient Matrix and Observation#{{{
 
-ind <- seq.int ( 1 , dimension-1 , 2 )
+temp <- (1:num_complex_eigen) * 2
 
 coefficient <- matrix ( 0 , dimension , dimension )
 
-coefficient [ cbind(ind,ind) ] <- eigen_real
-coefficient [ cbind(ind+1,ind+1) ] <- eigen_real
-coefficient [ cbind(ind,ind+1) ] <- eigen_imaginary
-coefficient [ cbind(ind+1,ind) ] <- -eigen_imaginary
+coefficient [ cbind(temp,temp) ] <- eigen_real[1:num_complex_eigen]
+coefficient [ cbind(temp-1,temp-1) ] <- eigen_real[1:num_complex_eigen]
+coefficient [ cbind(temp-1,temp) ] <- eigen_imaginary
+coefficient [ cbind(temp,temp-1) ] <- -eigen_imaginary
 
-observation <- matrix ( 0 , dimension , length(time_point) )
+observation <- matrix ( 0 , length(time_point) , dimension )
 
-lapply ( 1:(dimension/2) ,
-  function(ind)
+lapply ( 1 : num_complex_eigen ,
+  function(index)
   {
-    observation [ (2*ind-1):(2*ind) , ] <<-
-      rbind (
-        exp ( eigen_real[ind] * time_point ) *
-          sin ( eigen_imaginary[ind] * time_point ) ,
-        exp ( eigen_real[ind] * time_point ) *
-          cos ( eigen_imaginary[ind] * time_point )
-      )
+    temp <- exp ( eigen_real[index] * time_point )
+    observation[,2*index-1] <<-
+      temp * sin ( eigen_imaginary[index] * time_point )
+    observation[,2*index] <<-
+      temp * cos ( eigen_imaginary[index] * time_point )
   }
 )
+
+if ( num_real_eigen == 1 )
+{
+  coefficient[dimension,dimension] <- tail(eigen_real,1)
+  observation[,dimension] <- exp ( tail(eigen_real,1) * time_point )
+}
 #}}}
 
 # Orthogonal Transformation#{{{
 
-# Mix adjacent blocks
-#   by left multiplying a block diagonal orthogonal matrix
-#   and right multiplying its transpose to the coefficient matrix.
-# "orthogonal_transformation" indicates the starting indices of
-#   blocks in the orthogonal transformation matrix.
-
-if ( ! is.null(orthogonal_transformation) )
+orthogonal_transformation <- as.list(orthogonal_transformation)
+for ( item in orthogonal_transformation )
 {
-  orthogonal_transformation <-
-    c ( orthogonal_transformation , dimension+1 )
-  ortho_tran <- matrix ( 0 , dimension , dimension )
-  lapply ( 1 : (length(orthogonal_transformation)-1) ,
-    function(ind)
-    {
-      ind1 <- orthogonal_transformation[ind]
-      ind2 <- orthogonal_transformation[ind+1] - 1
-      require('pracma')
-      ortho_tran [ ind1:ind2 , ind1:ind2 ] <<-
-        rortho ( ind2-ind1+1 )
-    }
-  )
-  observation <- ortho_tran %*% observation
-  coefficient <- ortho_tran %*% coefficient %*% t(ortho_tran)
+  item <- as.integer(item)
+  if ( length(item)!=2 )
+  {
+    stop('Each item of "orthogonal_transformation" must be length 2.')
+  }
+  if ( item[1]>=item[2] )
+  {
+    stop('In each item of "orthogonal_transformation", ' ,
+      'The second component must be larger than first.'
+    )
+  }
+  if ( item[1]<1 || item[2]>dimension )
+  {
+    stop('Out-of-bound index in items of "orthogonal_transformation".')
+  }
+
+  require('pracma')
+  qq <- diag(dimension)
+  qq[item[1]:item[2],item[1]:item[2]] <-
+    pracma::rortho(item[2]-item[1]+1)
+  observation <- observation %*% t(qq)
+  coefficient <- qq %*% coefficient %*% t(qq)
 }
 #}}}
 
 # Row-Column Permutation#{{{
 
 # Permute rows and columns
-#   by left multiplying a permutation matrix
-#   and right multiplying its transpose
-#   to the coefficient matrix.
+# by left multiplying a permutation matrix
+# and right multiplying its transpose
+# to the coefficient matrix.
 # This will make the sparsity structure less obvious,
-#   however it does not change the property,
-#   which means the system is still unconnected.
+# however it does not change the property,
+# which means the system is still unconnected,
+# if it is unconnected before this permutation.
 
 if ( row_column_permutation == TRUE )
 {
   require('permute')
-  permute_index <- shuffle ( dimension )
+  permute_index <- permute::shuffle ( dimension )
   coefficient <- coefficient [ permute_index , permute_index ]
-  observation <- observation [ permute_index , ]
+  observation <- observation [ , permute_index ]
 }
 #}}}
 
 # Intercept#{{{
 
-if ( ! is.null(intercept) )
+intercept <- runif ( dimension , intercept[[1]] , intercept[[2]] )
+temp <- solve ( coefficient , intercept )
+lapply ( 1 : length(time_point) , function(index)
 {
-  intercept <- runif ( dimension , intercept[1] , intercept[2] )
-  observation <- observation - solve ( coefficient , intercept )
-}
+  observation[index,] <<- observation[index,] - temp
+  return()
+} )
 #}}}
 
 # Return#{{{
 
-return (
-  list (
-    coefficient = coefficient
-    , intercept = intercept
-    , observation = observation
-    , time_point = time_point
-  )
-)
+return ( list (
+  coefficient = coefficient
+  , intercept = intercept
+  , observation = cbind ( time_point , observation )
+) )
 #}}}
 
 }

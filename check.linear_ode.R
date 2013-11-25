@@ -11,8 +11,9 @@ check.linear_ode <- function
 
 if ( correlation )
 {
-  correlation <- cor ( t(linear_ode$observation) )
-  correlation <- max ( abs ( correlation - diag(dimension) ) )
+  correlation <- cor ( linear_ode$observation[,-1] )
+  correlation <- correlation - diag(ncol(linear_ode$observation)-1)
+  correlation <- max(abs(correlation))
 }
 
 # Variation Inflation Factor
@@ -20,24 +21,21 @@ if ( correlation )
 if ( vif )
 {
   require('HH')
-  observation_list <-
-    lapply ( 1 : nrow(linear_ode$observation) ,
-      function(ind)
-      {
-        return ( linear_ode$observation[ind,] )
-      }
-    )
-  vif <- vif ( data.frame ( observation_list ) )
+  observation_list <- lapply ( 1 : (ncol(linear_ode$observation)-1) ,
+    function(index)
+    {
+      return ( linear_ode$observation[,index+1] )
+    }
+  )
+  vif <- HH::vif ( data.frame ( observation_list ) )
   vif <- as.vector(vif)
 }
 
 # Return
 
-return (
-  list (
-    correlation = correlation
-    , vif = vif
-  )
-)
+return ( list (
+  correlation = correlation
+  , vif = vif
+) )
 
 }
