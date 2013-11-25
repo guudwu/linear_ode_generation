@@ -1,8 +1,8 @@
 set.seed(0)
-dimension <- 8
+dimension <- 9
 time_point <- 0:100
-orthogonal_transformation <- list(c(2,3),c(4,5),c(6,8))
-intercept <- list(0,0)
+orthogonal_transformation <- list(c(2,3),c(4,5),c(6,9))
+intercept <- list(0,1e-2)
 
 source('linear_ode_generation.R')
 
@@ -20,7 +20,7 @@ linODE <- function ( time , state , pars )
   res <- pars[[1]] %*% state
   if ( ! is.null ( pars[[2]] ) )
     res <- res + pars[[2]]
-  return ( list ( res ) )
+  return ( list(res) )
 }
 
 require('deSolve')
@@ -34,7 +34,10 @@ ode_res <- ode (
 rss <- norm ( ode_res[,-1] - linear_ode$observation[,-1] , 'F' )
 
 source('check.linear_ode.R')
-ode_property <- check.linear_ode ( linear_ode )
+ode_property <- check.linear_ode(linear_ode)
 
 source('data.linear_ode.R')
-data.linear_ode ( linear_ode )
+data.linear_ode (linear_ode)
+
+source('plot.linear_ode.R')
+plot.linear_ode(linear_ode)
