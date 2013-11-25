@@ -1,60 +1,64 @@
-data.linear_ode <- function
-(
+# Output data of generated ODE system as ".data" files.
+
+data.linear_ode <- function (
   linear_ode
-  , sparse = TRUE
+  , sparse = FALSE
 )
+
+# INPUT:
+# linear_ode: Return value of "linear_ode_generation.R".
+# sparse: Whether to output coefficient matrix in sparse format.
 
 {
 
 sink('config.data')
-cat ( nrow(linear_ode$observation)
-  , ncol(linear_ode$observation)
-  , sep = ' '
-)
-cat ( '\n' )
+
 cat (
-  linear_ode$time_point
+  ncol(linear_ode$observation) - 1
+  , nrow(linear_ode$observation)
   , sep = ' '
 )
-cat ( '\n' )
+cat('\n')
+
 cat (
-  sum ( linear_ode$coefficient != 0 )
-  , ifelse (
-      is.null(linear_ode$intercept)
-      , 0
-      , nrow(linear_ode$observation)
-    )
+  linear_ode$observation[,1]
   , sep = ' '
 )
+cat ('\n')
+
+cat ( sum(linear_ode$coefficient!=0) )
+
 sink(NULL)
 
-write.table ( as.numeric ( linear_ode$coefficient )
+write.table (
+  as.numeric(linear_ode$coefficient)
   , file='coefficient.data'
   , row.names=FALSE , col.names=FALSE ,
   , sep=' ' , eol=' '
   , quote=FALSE
 )
 
-write.table ( as.numeric ( linear_ode$observation )
+write.table (
+  as.numeric(linear_ode$observation[,-1])
   , file='observation.data'
   , row.names=FALSE , col.names=FALSE ,
   , sep=' ' , eol=' '
   , quote=FALSE
 )
 
-if ( ! is.null(linear_ode$intercept) )
-{
-  write.table ( as.numeric ( linear_ode$intercept )
-    , file='intercept.data'
-    , row.names=FALSE , col.names=FALSE ,
-    , sep=' ' , eol=' '
-    , quote=FALSE
-  )
-}
+write.table (
+  as.numeric(linear_ode$intercept)
+  , file='intercept.data'
+  , row.names=FALSE , col.names=FALSE ,
+  , sep=' ' , eol=' '
+  , quote=FALSE
+)
 
 if ( sparse )
 {
-  write.table ( as.integer ( which(linear_ode$coefficient!=0) )
+  position <- which ( linear_ode$coefficient!=0 )
+  write.table (
+    as.integer(position)
     , file='p_coefficient.data'
     , row.names=FALSE , col.names=FALSE ,
     , sep=' ' , eol=' '
@@ -62,9 +66,7 @@ if ( sparse )
   )
 
   write.table (
-    as.numeric (
-      linear_ode$coefficient [ which(linear_ode$coefficient!=0) ]
-    )
+    as.numeric(linear_ode$coefficient[position])
     , file='s_coefficient.data'
     , row.names=FALSE , col.names=FALSE ,
     , sep=' ' , eol=' '
@@ -72,6 +74,6 @@ if ( sparse )
   )
 }
 
-#sink(NULL)
+return()
 
 }
