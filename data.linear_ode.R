@@ -46,13 +46,16 @@ write.table (
   , quote=FALSE
 )
 
-write.table (
-  as.numeric(linear_ode$intercept)
-  , file='intercept.data'
-  , row.names=FALSE , col.names=FALSE ,
-  , sep=' ' , eol=' '
-  , quote=FALSE
-)
+if ( !is.null(linear_ode$intercept) )
+{
+  write.table (
+    as.numeric(linear_ode$intercept)
+    , file='intercept.data'
+    , row.names=FALSE , col.names=FALSE ,
+    , sep=' ' , eol=' '
+    , quote=FALSE
+  )
+}
 
 if ( sparse )
 {

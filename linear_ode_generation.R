@@ -41,6 +41,9 @@ linear_ode_generation <- function
 #   Each row stands for a time point.
 #   Each column is a curve.
 #   The first column is time points.
+# eigen_imaginary: Imaginary parts of complex eigen-values.
+# eigen_real: Real parts of eigen-values.
+#   If there exists a real eigen-value, it is the last.
 
 {
 
@@ -238,22 +241,31 @@ if ( row_column_permutation == TRUE )
 
 # Intercept#{{{
 
-intercept <- runif ( dimension , intercept[[1]] , intercept[[2]] )
-temp <- solve ( coefficient , intercept )
-lapply ( 1 : length(time_point) , function(index)
+ret <- list (
+  coefficient = coefficient
+  , eigen_imaginary = eigen_imaginary
+  , eigen_real = eigen_real
+)
+
+if ( !all(intercept[[1]]==0) || !all(intercept[[2]]==0) )
 {
-  observation[index,] <<- observation[index,] - temp
-  return()
-} )
+  intercept <- runif ( dimension , intercept[[1]] , intercept[[2]] )
+  temp <- solve ( coefficient , intercept )
+  lapply ( 1 : length(time_point) , function(index)
+  {
+    observation[index,] <<- observation[index,] - temp
+    return()
+  } )
+  ret$intercept <- intercept
+}
+
+ret$observation = cbind ( time_point , observation )
 #}}}
 
 # Return#{{{
 
-return ( list (
-  coefficient = coefficient
-  , intercept = intercept
-  , observation = cbind ( time_point , observation )
-) )
+return(ret)
+
 #}}}
 
 }
